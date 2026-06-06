@@ -1,0 +1,234 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+    function isPlatformSuperAdmin() {
+       return isSignedIn() && request.auth.token.email != null && (
+         request.auth.token.email.lower() == 'automate.big1cs@gmail.com' ||
+         request.auth.token.email.lower() == 'admi.admine@gmail.com' ||
+         request.auth.token.email.lower() == 'automate@big1cs.com' ||
+         request.auth.token.email.lower() == 'automate.big1cs.com'
+       );
+    }
+
+    function isSuperAdmin() {
+      return isPlatformSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin');
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'role', 'status', 'createdAt', 'updatedAt']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.role in ['super_admin', 'admin', 'member'] &&
+             data.status in ['pending', 'approved', 'rejected', 'suspended'] &&
+             (!('tier' in data) || data.tier in ['growth_consultant', 'growth_principal', 'growth_partner', 'n_a']) &&
+             (!('phone' in data) || data.phone is string) &&
+             (!('canIdPrefix' in data) || data.canIdPrefix is string) &&
+             (!('canId' in data) || data.canId is string) &&
+             (!('invitedBy' in data) || data.invitedBy is string) &&
+             (!('pendingUpdate' in data) || data.pendingUpdate == null || data.pendingUpdate is map) &&
+             (!('adminQueries' in data) || data.adminQueries is list) &&
+             (!('documentUrl' in data) || data.documentUrl is string) &&
+             (!('selectedCoes' in data) || data.selectedCoes is list) &&
+             (!('professionalStatus' in data) || data.professionalStatus is string) &&
+             (!('professionalDetails' in data) || data.professionalDetails is map) &&
+             (!('experienceMonths' in data) || data.experienceMonths is string || data.experienceMonths is number) &&
+             (!('whyJoin' in data) || data.whyJoin is string) &&
+             data.createdAt is number && data.updatedAt is number;
+    }
+
+    function isValidUserDocument(data) {
+       return data.keys().hasAll(['title', 'url', 'uploadedAt']) &&
+              data.title is string && data.title.size() <= 100 &&
+              data.url is string && data.url.size() <= 500 &&
+              data.uploadedAt is number;
+    }
+
+    function isValidLead(data) {
+       return data.keys().hasAll(['memberId', 'clientName', 'coe', 'status', 'createdAt', 'updatedAt']) &&
+              data.memberId is string && data.memberId.size() <= 128 &&
+              data.clientName is string && data.clientName.size() <= 100 &&
+              (!('clientEmail' in data) || data.clientEmail is string) &&
+              (!('clientPhone' in data) || data.clientPhone is string) &&
+              data.coe in ['setup', 'compliance', 'assurance', 'wealth', 'advisory', 'diligence'] &&
+              data.status in ['prospect', 'confirmed', 'new', 'contacted', 'document_collection', 'processing', 'completed', 'lost', 'follow_up', 'closed'] &&
+              (!('notes' in data) || data.notes is string) &&
+              data.createdAt is number && data.updatedAt is number;
+    }
+
+    function isValidLeadDocumentRequest(data) {
+       return data.keys().hasAll(['title', 'status', 'requestedAt', 'updatedAt']) &&
+              data.title is string && data.title.size() <= 100 &&
+              data.status in ['requested', 'uploaded', 'approved', 'rejected'] &&
+              (!('url' in data) || data.url is string || data.url == null) &&
+              data.requestedAt is number && data.updatedAt is number;
+    }
+
+    function isValidFollowUp(data) {
+       return data.keys().hasAll(['notes', 'date', 'createdAt']) &&
+              data.notes is string && data.notes.size() <= 1000 &&
+              data.date is number &&
+              data.createdAt is number;
+    }
+
+    function isValidMarketingMaterial(data) {
+       return data.keys().hasAll(['title', 'url', 'createdAt']) &&
+              data.title is string && data.title.size() <= 100 &&
+              data.url is string && data.url.size() <= 500 &&
+              (!('description' in data) || data.description is string) &&
+              data.createdAt is number;
+    }
+
+    function isValidEarning(data) {
+       return data.keys().hasAll(['memberId', 'leadId', 'amount', 'coe', 'date', 'clientName']) &&
+              data.memberId is string &&
+              data.leadId is string &&
+              data.amount is number &&
+              data.coe is string &&
+              data.date is number &&
+              data.clientName is string;
+    }
+
+    function isValidSetting(data) {
+       return data.keys().hasAll(['updatedAt']) &&
+              (!('logoUrl' in data) || data.logoUrl is string) &&
+              (!('primaryColor' in data) || data.primaryColor is string) &&
+              data.updatedAt is number;
+    }
+
+    function isValidNotification(data) {
+        return data.keys().hasAll(['title', 'message', 'type', 'createdAt']) &&
+               data.title is string &&
+               data.message is string &&
+               data.type in ['profile_update', 'other'] &&
+               (!('readBy' in data) || data.readBy is list) &&
+               data.createdAt is number;
+    }
+
+    function isValidAdminInvite(data) {
+       return data.keys().hasAll(['email', 'role', 'invitedAt']) &&
+              data.email is string &&
+              data.role == "admin" &&
+              (!('phone' in data) || data.phone is string) &&
+              data.invitedAt is number;
+    }
+
+    function isValidTeamInvite(data) {
+       return data.keys().hasAll(['email', 'phone', 'tier', 'partnerId', 'partnerName', 'createdAt']) &&
+              data.email is string &&
+              data.phone is string &&
+              data.tier in ['growth_consultant', 'growth_principal'] &&
+              data.partnerId is string &&
+              data.partnerName is string &&
+              data.createdAt is number;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isSignedIn();
+      allow delete: if isAdmin() && isValidId(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (
+        (incoming().role == 'member' && incoming().status == 'pending') ||
+        (incoming().role == 'admin' && incoming().status == 'pending' && exists(/databases/$(database)/documents/admin_invites/$(incoming().email.lower()))) ||
+        (isPlatformSuperAdmin() && incoming().role == 'super_admin' && incoming().status == 'approved')
+      );
+      allow update: if isValidId(userId) && (
+         (isOwner(userId) && isValidUser(incoming()) && (
+            isPlatformSuperAdmin() || (
+              incoming().role == existing().role && 
+              (incoming().status == existing().status || (existing().status == 'pending' && incoming().status == 'pending') || (existing().status == 'rejected' && incoming().status == 'pending'))
+            )
+         )) ||
+         (isSignedIn() && existing().invitedBy == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'invitedBy', 'tier']) && !('invitedBy' in incoming())) ||
+         isAdmin()
+      );
+    }
+
+    match /users/{userId}/documents/{documentId} {
+       allow read: if isOwner(userId) || isAdmin();
+       allow create: if isValidId(documentId) && isValidUserDocument(incoming()) && isOwner(userId);
+       allow delete: if isValidId(documentId) && isOwner(userId);
+    }
+
+    match /leads/{leadId} {
+       allow get: if (isSignedIn() && existing().memberId == request.auth.uid) || isAdmin();
+       allow list: if (isSignedIn() && resource.data.memberId == request.auth.uid) || isAdmin();
+       allow create: if isValidId(leadId) && isValidLead(incoming()) && incoming().memberId == request.auth.uid;
+       allow update: if isValidId(leadId) && isValidLead(incoming()) && (
+          (isSignedIn() && existing().memberId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['clientName', 'clientEmail', 'clientPhone', 'notes', 'updatedAt', 'status'])) ||
+          isAdmin()
+       );
+    }
+
+    match /leads/{leadId}/document_requests/{requestId} {
+       allow read: if (isSignedIn() && get(/databases/$(database)/documents/leads/$(leadId)).data.memberId == request.auth.uid) || isAdmin();
+       allow create: if isValidId(requestId) && isValidLeadDocumentRequest(incoming()) && isAdmin();
+       allow update: if isValidId(requestId) && isValidLeadDocumentRequest(incoming()) && (
+          (isSignedIn() && get(/databases/$(database)/documents/leads/$(leadId)).data.memberId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['url', 'status', 'updatedAt']) && incoming().status == 'uploaded') ||
+          isAdmin()
+       );
+    }
+
+    match /leads/{leadId}/follow_ups/{followUpId} {
+       allow read: if (isSignedIn() && get(/databases/$(database)/documents/leads/$(leadId)).data.memberId == request.auth.uid) || isAdmin();
+       allow create: if isValidId(followUpId) && isValidFollowUp(incoming()) && (
+         (isSignedIn() && get(/databases/$(database)/documents/leads/$(leadId)).data.memberId == request.auth.uid) || isAdmin()
+       );
+    }
+
+    match /marketing_materials/{materialId} {
+       allow read: if isSignedIn();
+       allow create: if isValidId(materialId) && isValidMarketingMaterial(incoming()) && isAdmin();
+       allow update: if isValidId(materialId) && isValidMarketingMaterial(incoming()) && isAdmin();
+       allow delete: if isAdmin();
+    }
+
+    match /earnings/{earningId} {
+       allow read: if (isSignedIn() && existing().memberId == request.auth.uid) || isAdmin();
+       allow list: if (isSignedIn() && resource.data.memberId == request.auth.uid) || isAdmin();
+       allow create: if isValidId(earningId) && isValidEarning(incoming()) && isAdmin();
+       allow update: if isValidId(earningId) && isValidEarning(incoming()) && isAdmin();
+       allow delete: if isAdmin();
+    }
+    match /settings/{settingId} {
+       allow read: if isSignedIn();
+       allow write: if isSuperAdmin() && isValidSetting(incoming());
+    }
+    match /notifications/{notificationId} {
+       allow read: if isAdmin();
+       allow create: if isSignedIn() && isValidNotification(incoming());
+       allow update: if isAdmin() && isValidNotification(incoming());
+       allow delete: if isSuperAdmin();
+    }
+
+    match /admin_invites/{inviteId} {
+       allow read: if isSignedIn();
+       allow create, update: if isAdmin() && isValidAdminInvite(incoming());
+       allow delete: if isAdmin();
+    }
+
+    match /team_invites/{inviteId} {
+       allow read: if isSignedIn();
+       allow create, update: if isSignedIn() && isValidTeamInvite(incoming());
+       allow delete: if (isSignedIn() && existing().partnerId == request.auth.uid) || isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+       allow read: if isSuperAdmin();
+       allow create: if isAdmin() && incoming().keys().hasAll(['action', 'userId', 'userName', 'remarks', 'timestamp', 'performedBy']);
+    }
+  }
+}

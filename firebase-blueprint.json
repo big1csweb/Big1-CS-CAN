@@ -1,0 +1,194 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A member or admin of the C.A.N. Portal.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "canIdPrefix": { "type": "string" },
+        "canId": { "type": "string" },
+        "pendingUpdate": { "type": "object" },
+        "adminQueries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "message": { "type": "string" },
+              "queryType": { "type": "string", "enum": ["text", "document"] },
+              "createdAt": { "type": "number" },
+              "answered": { "type": "boolean" },
+              "answer": { "type": "string" }
+            },
+            "required": ["id", "message", "createdAt", "answered"]
+          }
+        },
+        "role": { "type": "string", "enum": ["super_admin", "admin", "member"] },
+        "tier": { "type": "string", "enum": ["growth_consultant", "growth_principal", "growth_partner", "n_a"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "number", "description": "Timestamp" },
+        "updatedAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["name", "email", "role", "status", "createdAt", "updatedAt"]
+    },
+    "UserDocument": {
+       "title": "UserDocument",
+       "description": "Documents uploaded by the member for approval",
+       "type": "object",
+       "properties": {
+         "title": { "type": "string" },
+         "url": { "type": "string" },
+         "uploadedAt": { "type": "number" }
+       },
+       "required": ["title", "url", "uploadedAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A lead or case lodged by a member.",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "coe": { "type": "string", "enum": ["setup", "compliance", "assurance", "wealth", "advisory", "diligence"] },
+        "status": { "type": "string", "enum": ["prospect", "confirmed", "new", "contacted", "document_collection", "processing", "completed", "lost", "follow_up", "closed"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["memberId", "clientName", "coe", "status", "createdAt", "updatedAt"]
+    },
+    "LeadDocumentRequest": {
+       "title": "LeadDocumentRequest",
+       "description": "Document requested for a lead.",
+       "type": "object",
+       "properties": {
+          "title": {"type": "string"},
+          "status": {"type": "string", "enum": ["requested", "uploaded", "approved", "rejected"]},
+          "url": {"type": "string"},
+          "requestedAt": {"type": "number"},
+          "updatedAt": {"type": "number"}
+       },
+       "required": ["title", "status", "requestedAt", "updatedAt"]
+    },
+    "FollowUp": {
+       "title": "FollowUp",
+       "description": "A follow-up or interaction for a lead.",
+       "type": "object",
+       "properties": {
+          "notes": { "type": "string" },
+          "date": { "type": "number" },
+          "createdAt": { "type": "number" }
+       },
+       "required": ["notes", "date", "createdAt"]
+    },
+    "MarketingMaterial": {
+      "title": "MarketingMaterial",
+      "description": "Brochure or marketing material available to members.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "url", "createdAt"]
+    },
+    "Earning": {
+      "title": "Earning",
+      "description": "Earnings generated per lead for a member",
+      "type": "object",
+      "properties": {
+         "memberId": { "type": "string" },
+         "leadId": { "type": "string" },
+         "amount": { "type": "number" },
+         "coe": { "type": "string" },
+         "clientName": { "type": "string" },
+         "date": { "type": "number" }
+      },
+      "required": ["memberId", "leadId", "amount", "coe", "date", "clientName"]
+    },
+    "AdminInvite": {
+      "title": "AdminInvite",
+      "description": "An invite extended to a user to join as an admin.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] },
+        "invitedAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["email", "role", "invitedAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global Settings.",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["updatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notifications for admins.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["profile_update", "other"] },
+        "readBy": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "message", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles. Contains Role and Status."
+    },
+    "/users/{userId}/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/UserDocument" },
+      "description": "Documents uploaded by user for profile approval."
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/Lead" },
+      "description": "Leads lodged by members."
+    },
+    "/leads/{leadId}/document_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/LeadDocumentRequest" },
+      "description": "Documents requested for a lead."
+    },
+    "/leads/{leadId}/follow_ups/{followUpId}": {
+      "schema": { "$ref": "#/entities/FollowUp" },
+      "description": "Followups associated with a lead."
+    },
+    "/marketing_materials/{materialId}": {
+      "schema": { "$ref": "#/entities/MarketingMaterial" },
+      "description": "Global marketing materials."
+    },
+    "/earnings/{earningId}": {
+      "schema": { "$ref": "#/entities/Earning" },
+      "description": "Earnings for members."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Setting" },
+      "description": "Global user settings."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "System notifications for admins."
+    },
+    "/admin_invites/{inviteId}": {
+      "schema": { "$ref": "#/entities/AdminInvite" },
+      "description": "Admin invites created by existing admins."
+    }
+  }
+}
